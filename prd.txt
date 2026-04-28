@@ -10,7 +10,7 @@ Message Bus: RabbitMQ (deployed via standard K8s manifests).
 
 Databases: PostgreSQL (for Process Manager state and outbox tables).
 
-Implementation Languages: Go or Rust (implementing strict Hexagonal Architecture/Ports & Adapters).
+Implementation Languages: Python (implementing strict Hexagonal Architecture/Ports & Adapters).
 
 1. Architecture & Containers
 The system should be divided into the following isolated containers, communicating strictly via RabbitMQ:

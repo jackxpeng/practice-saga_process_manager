@@ -99,3 +99,50 @@ To prevent partial failures (e.g., saving state to Postgres but crashing before 
 
 ### State Hydration
 When the `trip-booking-manager` receives an event from RabbitMQ (like `FlightBookedEvent`), the infrastructure layer extracts the `bookingId`, queries the Postgres database to retrieve the current state, and reconstructs (hydrates) the Process Manager in memory before passing the event payload directly into the pure domain logic.
+
+## 5. DDD Context Diagram
+
+```mermaid
+flowchart TD
+    %% Define the Bounded Contexts
+    TripBC[/"Trip Booking Context<br/>(Core)"/]
+    RouteBC[/"Flight Routing Context<br/>(Supporting)"/]
+    FlightBC[/"Flight Booking Context<br/>(Supporting)"/]
+    HotelBC[/"Hotel Booking Context<br/>(Supporting)"/]
+
+    %% Define the External Systems (Also treated as Bounded Contexts)
+    ExtRoute[/"External Routing Service"/]
+    ExtAirline[/"External Airline Systems"/]
+    ExtHotel[/"External Hotel Systems"/]
+
+    %% Internal Integration (Process Manager to Workers)
+    %% Trip Manager is UPSTREAM (U). It exposes a Published Language (PL).
+    %% Workers are DOWNSTREAM (D). They Conform (CF) to the language.
+    TripBC -- "U (OHS/PL)<br/>Event Schema" ---> RouteBC
+    RouteBC -- "D (CF)" ---> TripBC
+
+    TripBC -- "U (OHS/PL)<br/>Event Schema" ---> FlightBC
+    FlightBC -- "D (CF)" ---> TripBC
+
+    TripBC -- "U (OHS/PL)<br/>Event Schema" ---> HotelBC
+    HotelBC -- "D (CF)" ---> TripBC
+
+    %% External Integration (Workers to 3rd Party APIs)
+    %% External APIs are UPSTREAM (U). They dictate the terms.
+    %% Workers are DOWNSTREAM (D). They use an Anti-Corruption Layer (ACL).
+    ExtRoute -- "U" ---> RouteBC
+    RouteBC -- "D (ACL)" ---> ExtRoute
+
+    ExtAirline -- "U" ---> FlightBC
+    FlightBC -- "D (ACL)" ---> ExtAirline
+
+    ExtHotel -- "U" ---> HotelBC
+    HotelBC -- "D (ACL)" ---> ExtHotel
+
+    %% Styling
+    classDef internal fill:#e3f2fd,stroke:#1565c0,stroke-width:2px,stroke-dasharray: 5 5
+    classDef external fill:#f5f5f5,stroke:#9e9e9e,stroke-width:2px,stroke-dasharray: 5 5
+    
+    class TripBC,RouteBC,FlightBC,HotelBC internal
+    class ExtRoute,ExtAirline,ExtHotel external
+```

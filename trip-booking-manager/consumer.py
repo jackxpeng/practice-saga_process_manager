@@ -2,10 +2,9 @@ import pika
 import os
 import json
 import logging
-import threading
 import time
-from database import SessionLocal
-from domain import ProcessManagerDomain, ProcessState, OutboxEvent
+from database import SessionLocal, init_db
+from domain import ProcessState, OutboxEvent
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -31,22 +30,17 @@ def callback(ch, method, properties, body):
                 ch.basic_ack(delivery_tag=method.delivery_tag)
                 return
             
-            outbound_command = None
+            outbox_evt = None
             if event_type == "RouteGeneratedEvent":
-                outbound_command = ProcessManagerDomain.handle_route_generated(state, event.get("route"))
+                outbox_evt = state.handle_route_generated(event.get("route"))
             elif event_type == "FlightBookedEvent":
-                outbound_command = ProcessManagerDomain.handle_flight_booked(state, event.get("flightConfirmation"))
+                outbox_evt = state.handle_flight_booked(event.get("flightConfirmation"))
             elif event_type == "HotelBookedEvent":
-                ProcessManagerDomain.handle_hotel_booked(state, event.get("hotelConfirmation"))
+                state.handle_hotel_booked(event.get("hotelConfirmation"))
             elif event_type == "HotelFailedEvent":
-                outbound_command = ProcessManagerDomain.handle_hotel_failed(state, event.get("reason"))
+                outbox_evt = state.handle_hotel_failed(event.get("reason"))
                 
-            if outbound_command:
-                outbox_evt = OutboxEvent(
-                    aggregate_id=state.id,
-                    event_type=outbound_command["event_type"],
-                    payload=outbound_command["payload"]
-                )
+            if outbox_evt:
                 db.add(outbox_evt)
             
             db.commit()
@@ -57,6 +51,7 @@ def callback(ch, method, properties, body):
         ch.basic_nack(delivery_tag=method.delivery_tag, requeue=False)
 
 def consume_events():
+    init_db() # ensure db is mapped
     while True:
         try:
             params = pika.URLParameters(RABBITMQ_URL)
@@ -73,12 +68,11 @@ def consume_events():
                 channel.queue_bind(exchange='trip_exchange', queue=queue_name, routing_key=evt)
             
             channel.basic_consume(queue=queue_name, on_message_callback=callback)
-            logger.info("Started consuming events...")
+            logger.info("Process Manager Consumer started...")
             channel.start_consuming()
         except Exception as e:
             logger.error(f"Failed to connect to RabbitMQ for consumer: {e}")
             time.sleep(5)
 
-def start_consumer():
-    thread = threading.Thread(target=consume_events, daemon=True)
-    thread.start()
+if __name__ == "__main__":
+    consume_events()

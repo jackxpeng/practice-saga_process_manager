@@ -1,7 +1,8 @@
 import os
-from sqlalchemy import create_engine, Column, String, Boolean, Table
+from sqlalchemy import create_engine, Column, String, Boolean, Table, DateTime
 from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy.orm import registry, sessionmaker
+import datetime
 
 # Import pure dataclasses from the domain
 from domain import ProcessState, OutboxEvent
@@ -29,6 +30,7 @@ outbox_events_table = Table(
     Column("event_type", String, nullable=False),
     Column("payload", JSONB, nullable=False),
     Column("published", Boolean, default=False),
+    Column("created_at", DateTime, nullable=False, default=datetime.datetime.utcnow),
 )
 
 

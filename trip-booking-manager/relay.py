@@ -2,10 +2,9 @@ import time
 import json
 import pika
 import os
-import threading
 import logging
 from sqlalchemy import text
-from database import SessionLocal
+from database import SessionLocal, init_db
 from domain import OutboxEvent
 
 logging.basicConfig(level=logging.INFO)
@@ -21,6 +20,7 @@ def get_rabbitmq_channel():
     return connection, channel
 
 def relay_outbox_events():
+    init_db() # ensure db is mapped
     while True:
         try:
             connection, channel = get_rabbitmq_channel()
@@ -29,35 +29,41 @@ def relay_outbox_events():
             logger.error(f"Failed to connect to RabbitMQ for relay: {e}")
             time.sleep(5)
 
+    logger.info("Outbox Relay started...")
     while True:
         try:
             with SessionLocal() as db:
                 sql = text("""
-                    SELECT id FROM outbox_events 
-                    WHERE published = False 
-                    FOR UPDATE SKIP LOCKED 
-                    LIMIT 5
+                    UPDATE outbox_events 
+                    SET published = true 
+                    WHERE id IN (
+                        SELECT id FROM outbox_events 
+                        WHERE published = false 
+                        ORDER BY created_at ASC 
+                        LIMIT 5 
+                        FOR UPDATE SKIP LOCKED
+                    ) 
+                    RETURNING id, event_type, payload;
                 """)
                 result = db.execute(sql)
-                event_ids = [row[0] for row in result]
+                rows = result.fetchall()
                 
-                if not event_ids:
+                if not rows:
+                    db.commit()
                     time.sleep(1)
                     continue
                 
-                events = db.query(OutboxEvent).filter(OutboxEvent.id.in_(event_ids)).all()
-                for event in events:
-                    routing_key = event.event_type
-                    message = json.dumps(event.payload)
+                for row in rows:
+                    event_id, event_type, payload = row
+                    message = json.dumps(payload)
                     channel.basic_publish(
                         exchange='trip_exchange',
-                        routing_key=routing_key,
+                        routing_key=event_type,
                         body=message,
                         properties=pika.BasicProperties(
                             delivery_mode=2 # persistent
                         )
                     )
-                    event.published = True
                 
                 db.commit()
         except Exception as e:
@@ -69,6 +75,5 @@ def relay_outbox_events():
             except Exception:
                 pass
 
-def start_relay():
-    thread = threading.Thread(target=relay_outbox_events, daemon=True)
-    thread.start()
+if __name__ == "__main__":
+    relay_outbox_events()
