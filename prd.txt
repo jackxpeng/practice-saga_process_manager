@@ -1,0 +1,135 @@
+Product Requirements Document (PRD): Trip Booking Process Manager (Refined)
+Objective
+Build a distributed, event-driven Process Manager to handle a multi-step Trip Booking workflow. The system must demonstrate resilient cross-boundary communication using the Transactional Outbox pattern, preventing partial failures between local database commits and message bus publishing.
+
+Target Environment
+
+Infrastructure: Kubernetes (Local kind cluster with local-path-provisioner).
+
+Message Bus: RabbitMQ (deployed via standard K8s manifests).
+
+Databases: PostgreSQL (for Process Manager state and outbox tables).
+
+Implementation Languages: Go or Rust (implementing strict Hexagonal Architecture/Ports & Adapters).
+
+1. Architecture & Containers
+The system should be divided into the following isolated containers, communicating strictly via RabbitMQ:
+
+trip-booking-manager (The Core):
+
+Maintains the state of the booking (AwaitingApproval, Routing, BookingFlights, BookingHotels).
+
+Implements the Transactional Outbox pattern. State changes and outbound commands must be committed to Postgres atomically.
+
+Contains a background relay worker that polls the Outbox table and publishes to RabbitMQ.
+
+flight-routing-service (Worker):
+
+Listens for routing commands. Replies with generated routes.
+
+flight-booking-service (Worker):
+
+Listens for flight booking commands. Replies with success/failure events.
+
+hotel-booking-service (Worker):
+
+Listens for hotel booking commands. Replies with success/failure events.
+
+api-gateway (Entrypoint):
+
+Exposes a simple REST API to initiate processes and simulate human approvals.
+
+2. The Workflow Logic
+The trip-booking-manager must implement the following state transitions:
+
+Initialize: Receives HTTP POST to start. Calculates initial route via flight-routing-service.
+
+Approval: Issues RequestEmployeeApprovalCommand.
+
+If API receives Employee Approve -> Proceed to book flights.
+
+If API receives Employee Reject -> Update rejected_routes state, issue CalculateRouteCommand (passing the rejected routes), transition back to Routing.
+
+Flight Booking: Issues BookFlightCommand.
+
+If FlightBooked -> Proceed to book hotel.
+
+Hotel Booking: Issues BookHotelCommand.
+
+If HotelBooked -> Workflow Complete.
+
+If HotelFailed -> Issue CancelFlightCommand (Compensation transaction).
+
+3. Message Bus Contracts (RabbitMQ JSON Payloads)
+All messages must include a bookingId to act as the correlation ID for hydrating the Process Manager.
+
+Routing Phase:
+
+CalculateRouteCommand: { "bookingId": "uuid", "destination": "string", "travelerId": "string", "rejectedRoutes": ["string"] }
+
+RouteGeneratedEvent: { "bookingId": "uuid", "route": { "routeId": "string", "airline": "string", "cost": 0.0 } }
+
+Approval Phase:
+
+RequestEmployeeApprovalCommand: { "bookingId": "uuid", "travelerId": "string", "proposedRoute": { "routeId": "string", "airline": "string" } }
+
+Flight Booking Phase:
+
+BookFlightCommand: { "bookingId": "uuid", "travelerId": "string", "routeId": "string" }
+
+FlightBookedEvent: { "bookingId": "uuid", "flightConfirmation": "string" }
+
+CancelFlightCommand: { "bookingId": "uuid", "flightConfirmation": "string" }
+
+Hotel Booking Phase:
+
+BookHotelCommand: { "bookingId": "uuid", "destination": "string" }
+
+HotelBookedEvent: { "bookingId": "uuid", "hotelConfirmation": "string" }
+
+HotelFailedEvent: { "bookingId": "uuid", "reason": "string" }
+
+4. Database Schema (trip-booking-manager)
+The agent must generate migrations for two tables in the same Postgres database:
+
+process_state: id (UUID), status (String), destination (String), traveler_id (String), current_route (JSON), rejected_routes (JSONB), flight_confirmation (String).
+
+outbox_events: id (UUID), aggregate_id (UUID), event_type (String), payload (JSONB), published (Boolean).
+
+5. Interactive Testing Guide (Role-Play Scenarios)
+The agent must expose a set of curl commands or a simple CLI via the api-gateway so the user can interact with the system in the following roles:
+
+Role 1: The Employee (The Happy Path)
+
+Action: Initiate a trip to "Seattle".
+
+Action: Query the current state of the Process Manager (should be AwaitingApproval).
+
+Action: Send an "Approve Route" HTTP request.
+
+Verification: Watch the logs as RabbitMQ routes the commands, and the state transitions automatically to BookingFlights, BookingHotels, and then Completed.
+
+Role 2: The Picky Employee (The Workflow Loop)
+
+Action: Initiate a trip to "New York".
+
+Action: Send a "Reject Route" HTTP request.
+
+Verification: Check the Process Manager state. Ensure rejected_routes JSONB array has increased by one.
+
+Action: Verify the system automatically requested a new route (avoiding the rejected one) and returned to AwaitingApproval.
+
+Role 3: The Infrastructure Chaos Engineer (Resilience Testing)
+
+Action: Initiate a trip.
+
+Action: While the trip is AwaitingApproval, use kubectl exec to enter the Postgres database and lock the outbox_events table, OR use kubectl scale deploy trip-booking-manager --replicas=0 right after approving a route.
+
+Verification: Bring the service back up (kubectl scale deploy trip-booking-manager --replicas=1). The Outbox Relay must wake up, find the unpublished BookFlightCommand in the database, and publish it to RabbitMQ, proving that the Process Manager state and outbound messages survived the crash.
+
+6. Output Requirements from the Agent
+Kubernetes manifests (Deployment, Service, StatefulSet for RabbitMQ/Postgres).
+
+Source code for the microservices demonstrating Hexagonal Architecture.
+
+A README.md with explicit instructions on how to build the Docker images, load them into the kind cluster (kind load docker-image), and apply the manifests.

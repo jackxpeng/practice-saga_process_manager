@@ -1,0 +1,21 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: flight-routing-service
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: flight-routing-service
+  template:
+    metadata:
+      labels:
+        app: flight-routing-service
+    spec:
+      containers:
+      - name: flight-routing-service
+        image: flight-routing-service:latest
+        imagePullPolicy: Never
+        env:
+        - name: RABBITMQ_URL
+          value: "amqp://guest:guest@rabbitmq:5672/"

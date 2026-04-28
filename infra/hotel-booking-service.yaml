@@ -1,0 +1,21 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: hotel-booking-service
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: hotel-booking-service
+  template:
+    metadata:
+      labels:
+        app: hotel-booking-service
+    spec:
+      containers:
+      - name: hotel-booking-service
+        image: hotel-booking-service:latest
+        imagePullPolicy: Never
+        env:
+        - name: RABBITMQ_URL
+          value: "amqp://guest:guest@rabbitmq:5672/"
