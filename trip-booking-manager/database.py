@@ -1,35 +1,55 @@
 import os
-import uuid
-from sqlalchemy import create_engine, Column, String, Boolean
+from sqlalchemy import create_engine, Column, String, Boolean, Table
 from sqlalchemy.dialects.postgresql import UUID, JSONB
-from sqlalchemy.orm import declarative_base, sessionmaker
+from sqlalchemy.orm import registry, sessionmaker
 
-Base = declarative_base()
+# Import pure dataclasses from the domain
+from domain import ProcessState, OutboxEvent
 
-class ProcessState(Base):
-    __tablename__ = 'process_state'
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    status = Column(String, nullable=False)
-    destination = Column(String, nullable=False)
-    traveler_id = Column(String, nullable=False)
-    current_route = Column(JSONB, nullable=True)
-    rejected_routes = Column(JSONB, nullable=True, default=list)
-    flight_confirmation = Column(String, nullable=True)
+mapper_registry = registry()
+metadata = mapper_registry.metadata
 
-class OutboxEvent(Base):
-    __tablename__ = 'outbox_events'
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    aggregate_id = Column(UUID(as_uuid=True), nullable=False)
-    event_type = Column(String, nullable=False)
-    payload = Column(JSONB, nullable=False)
-    published = Column(Boolean, default=False)
+process_state_table = Table(
+    "process_state",
+    metadata,
+    Column("id", UUID(as_uuid=True), primary_key=True),
+    Column("status", String, nullable=False),
+    Column("destination", String, nullable=False),
+    Column("traveler_id", String, nullable=False),
+    Column("current_route", JSONB, nullable=True),
+    Column("rejected_routes", JSONB, nullable=True, default=list),
+    Column("flight_confirmation", String, nullable=True),
+)
 
-DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://tripuser:trippass@postgres:5432/tripdb")
-# Fallback to local test if needed:
-# DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://tripuser:trippass@localhost:5432/tripdb")
+outbox_events_table = Table(
+    "outbox_events",
+    metadata,
+    Column("id", UUID(as_uuid=True), primary_key=True),
+    Column("aggregate_id", UUID(as_uuid=True), nullable=False),
+    Column("event_type", String, nullable=False),
+    Column("payload", JSONB, nullable=False),
+    Column("published", Boolean, default=False),
+)
+
+
+# Imperative mapping cleanly links the Tables to the Domain dataclasses
+def start_mappers():
+    # Only map if not already mapped
+    try:
+        mapper_registry.map_imperatively(ProcessState, process_state_table)
+        mapper_registry.map_imperatively(OutboxEvent, outbox_events_table)
+    except Exception:
+        pass
+
+
+DATABASE_URL = os.getenv(
+    "DATABASE_URL", "postgresql://tripuser:trippass@trip-postgres:5432/tripdb"
+)
 
 engine = create_engine(DATABASE_URL)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
+
 def init_db():
-    Base.metadata.create_all(bind=engine)
+    start_mappers()
+    metadata.create_all(bind=engine)

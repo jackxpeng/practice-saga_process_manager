@@ -5,7 +5,8 @@ import os
 import threading
 import logging
 from sqlalchemy import text
-from database import SessionLocal, OutboxEvent
+from database import SessionLocal
+from domain import OutboxEvent
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)

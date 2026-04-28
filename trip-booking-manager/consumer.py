@@ -4,8 +4,8 @@ import json
 import logging
 import threading
 import time
-from database import SessionLocal, ProcessState, OutboxEvent
-from domain import ProcessManagerDomain
+from database import SessionLocal
+from domain import ProcessManagerDomain, ProcessState, OutboxEvent
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)

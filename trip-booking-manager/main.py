@@ -1,8 +1,8 @@
 from fastapi import FastAPI, HTTPException, Depends
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
-from database import SessionLocal, init_db, ProcessState, OutboxEvent
-from domain import ProcessManagerDomain
+from database import SessionLocal, init_db
+from domain import ProcessManagerDomain, ProcessState, OutboxEvent
 from relay import start_relay
 from consumer import start_consumer
 

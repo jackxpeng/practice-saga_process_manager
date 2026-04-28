@@ -81,3 +81,21 @@ stateDiagram-v2
     AwaitingHotelBooking --> Completed : Hotel Booked
     Completed --> [*]
 ```
+
+## 4. Code Architecture and Design
+
+The implementation of the `BookingProcessManager` is designed around **Hexagonal Architecture (Ports and Adapters)**, ensuring the core business logic is completely isolated from infrastructure concerns like HTTP APIs, database implementations, and message brokering.
+
+### Decoupled Components
+The system is divided into highly isolated microservices:
+- **`trip-booking-manager` (The Core):** Maintains the `ProcessState` and implements the Transactional Outbox pattern.
+- **Worker Services:** `flight-routing-service`, `flight-booking-service`, and `hotel-booking-service`. These are stateless background workers that only know how to consume specific RabbitMQ commands and publish events in response.
+- **`api-gateway`:** A REST API entrypoint. It does not touch the state database directly. Instead, it acts as a proxy, forwarding requests to the manager's driving port to enforce bounded contexts.
+
+### The Transactional Outbox Pattern
+To prevent partial failures (e.g., saving state to Postgres but crashing before publishing to RabbitMQ), the `trip-booking-manager` leverages the Transactional Outbox pattern.
+- **Atomicity:** When a domain action occurs, the updated `process_state` and a new `outbox_events` record are saved to the database in a single transaction.
+- **Relay Worker (`SKIP LOCKED`):** A background thread constantly polls the `outbox_events` table for unpublished events. It uses a Postgres `FOR UPDATE SKIP LOCKED` query, which provides robust concurrency control. This allows the system to be scaled to multiple replicas safely without workers deadlocking or duplicating message publishing.
+
+### State Hydration
+When the `trip-booking-manager` receives an event from RabbitMQ (like `FlightBookedEvent`), the infrastructure layer extracts the `bookingId`, queries the Postgres database to retrieve the current state, and reconstructs (hydrates) the Process Manager in memory before passing the event payload directly into the pure domain logic.
