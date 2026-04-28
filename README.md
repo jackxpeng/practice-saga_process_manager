@@ -19,12 +19,12 @@ docker build -t flight-booking-service:latest ./flight-booking-service
 docker build -t hotel-booking-service:latest ./hotel-booking-service
 docker build -t api-gateway:latest ./api-gateway
 
-# Load images into kind cluster (assuming your cluster is named 'kind')
-kind load docker-image trip-booking-manager:latest
-kind load docker-image flight-routing-service:latest
-kind load docker-image flight-booking-service:latest
-kind load docker-image hotel-booking-service:latest
-kind load docker-image api-gateway:latest
+# Load images into kind cluster (named 'ddd-cluster')
+kind load docker-image trip-booking-manager:latest --name ddd-cluster
+kind load docker-image flight-routing-service:latest --name ddd-cluster
+kind load docker-image flight-booking-service:latest --name ddd-cluster
+kind load docker-image hotel-booking-service:latest --name ddd-cluster
+kind load docker-image api-gateway:latest --name ddd-cluster
 ```
 
 ## Deployment
@@ -43,7 +43,13 @@ kubectl get pods
 
 ## Interactive Testing Guide
 
-The API Gateway is exposed via a NodePort on `30080`. You can access it locally at `http://localhost:30080` (or the IP of your kind node).
+To access the API Gateway locally, use `kubectl port-forward` in a separate terminal:
+
+```bash
+kubectl port-forward svc/api-gateway 30080:8080
+```
+
+Now you can access the API at `http://localhost:30080`.
 
 ### Role 1: The Employee (The Happy Path)
 1. **Initiate a trip:**
