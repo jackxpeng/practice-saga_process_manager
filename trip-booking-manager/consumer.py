@@ -22,9 +22,12 @@ def callback(ch, method, properties, body):
             ch.basic_ack(delivery_tag=method.delivery_tag)
             return
 
+        import uuid
+        booking_uuid = uuid.UUID(booking_id)
+
         with SessionLocal() as db:
             # Hydration Step: Load state from DB
-            state = db.query(ProcessState).filter(ProcessState.id == booking_id).first()
+            state = db.query(ProcessState).filter(ProcessState.id == booking_uuid).first()
             if not state:
                 logger.error(f"State not found for bookingId: {booking_id}")
                 ch.basic_ack(delivery_tag=method.delivery_tag)

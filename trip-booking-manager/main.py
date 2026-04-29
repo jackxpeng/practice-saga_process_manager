@@ -42,7 +42,9 @@ def create_trip(req: TripRequest, db: Session = Depends(get_db)):
 
 @app.get("/trips/{booking_id}")
 def get_trip(booking_id: str, db: Session = Depends(get_db)):
-    state = db.query(ProcessState).filter(ProcessState.id == booking_id).first()
+    import uuid
+    booking_uuid = uuid.UUID(booking_id)
+    state = db.query(ProcessState).filter(ProcessState.id == booking_uuid).first()
     if not state:
         raise HTTPException(status_code=404, detail="Trip not found")
         
@@ -64,7 +66,9 @@ def get_trip(booking_id: str, db: Session = Depends(get_db)):
 
 @app.post("/trips/{booking_id}/approval")
 def approve_trip(booking_id: str, req: ApprovalRequest, db: Session = Depends(get_db)):
-    state = db.query(ProcessState).filter(ProcessState.id == booking_id).first()
+    import uuid
+    booking_uuid = uuid.UUID(booking_id)
+    state = db.query(ProcessState).filter(ProcessState.id == booking_uuid).first()
     if not state:
         raise HTTPException(status_code=404, detail="Trip not found")
         
