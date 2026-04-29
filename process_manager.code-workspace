@@ -1,0 +1,31 @@
+{
+    "folders": [
+        {
+            "path": "trip-booking-manager",
+            "name": "📦 Core: Trip Manager"
+        },
+        {
+            "path": "api-gateway",
+            "name": "🌐 Gateway"
+        },
+        {
+            "path": "hotel-booking-service",
+            "name": "👷 Worker: Hotel"
+        },
+        {
+            "path": "flight-routing-service",
+            "name": "👷 Worker: Routing"
+        },
+        {
+            "path": "flight-booking-service",
+            "name": "👷 Worker: Flight"
+        },
+        {
+            "path": "tests",
+            "name": "🧪 Tests"
+        }
+    ],
+    "settings": {
+        "python.testing.pytestEnabled": true
+    }
+}
