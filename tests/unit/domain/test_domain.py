@@ -74,3 +74,22 @@ def test_idempotency():
     evt2 = state.handle_route_generated(route_data)
     assert state.status == TripStatus.AWAITING_APPROVAL
     assert evt2 is None
+
+@pytest.mark.unit
+def test_compensation_path():
+    state = ProcessState(destination="Paris", traveler_id="emp-xyz")
+    state.handle_initialization()
+    state.handle_route_generated({"routeId": "route-001", "airline": "AF", "cost": 400.0})
+    state.handle_approval(True)
+    state.handle_flight_booked("FLIGHT-XYZ")
+    
+    # Hotel fails
+    evt = state.handle_hotel_failed("No rooms available")
+    assert state.status == TripStatus.COMPENSATING
+    assert evt is not None
+    assert evt.event_type == CommandType.CANCEL_FLIGHT
+    assert evt.payload["flightConfirmation"] == "FLIGHT-XYZ"
+    
+    # Flight cancellation completes
+    state.handle_flight_cancelled()
+    assert state.status == TripStatus.CANCELLED

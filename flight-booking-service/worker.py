@@ -32,6 +32,15 @@ def callback(ch, method, properties, body):
             logger.info(f"Published FlightBookedEvent: {response_event}")
         elif event_type == 'CancelFlightCommand':
             logger.info(f"Flight Cancelled for bookingId: {booking_id}")
+            response_event = {
+                "bookingId": booking_id
+            }
+            ch.basic_publish(
+                exchange='trip_exchange',
+                routing_key='FlightCancelledEvent',
+                body=json.dumps(response_event)
+            )
+            logger.info(f"Published FlightCancelledEvent: {response_event}")
             
         ch.basic_ack(delivery_tag=method.delivery_tag)
     except Exception as e:

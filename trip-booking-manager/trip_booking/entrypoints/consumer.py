@@ -45,7 +45,7 @@ def consume_events():
             queue_name = result.method.queue
             
             # Bind to all relevant events
-            events = ["RouteGeneratedEvent", "FlightBookedEvent", "HotelBookedEvent", "HotelFailedEvent"]
+            events = ["RouteGeneratedEvent", "FlightBookedEvent", "FlightCancelledEvent", "HotelBookedEvent", "HotelFailedEvent"]
             for evt in events:
                 channel.queue_bind(exchange='trip_exchange', queue=queue_name, routing_key=evt)
             

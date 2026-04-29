@@ -12,6 +12,7 @@ class TripStatus(str, Enum):
     BOOKING_HOTELS = "BookingHotels"
     COMPLETED = "Completed"
     COMPENSATING = "Compensating"
+    CANCELLED = "Cancelled"
 
 class CommandType(str, Enum):
     CALCULATE_ROUTE = "CalculateRouteCommand"
@@ -155,3 +156,8 @@ class ProcessState:
                 "flightConfirmation": self.flight_confirmation
             }
         )
+
+    def handle_flight_cancelled(self) -> None:
+        if self.status != TripStatus.COMPENSATING:
+            return # Idempotency
+        self.status = TripStatus.CANCELLED

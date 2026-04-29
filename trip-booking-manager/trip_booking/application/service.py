@@ -43,6 +43,8 @@ class TripApplicationService:
             outbox_evt = state.handle_route_generated(event.get("route", {}))
         elif event_type == "FlightBookedEvent":
             outbox_evt = state.handle_flight_booked(event.get("flightConfirmation", ""))
+        elif event_type == "FlightCancelledEvent":
+            state.handle_flight_cancelled()
         elif event_type == "HotelBookedEvent":
             state.handle_hotel_booked(event.get("hotelConfirmation", ""))
         elif event_type == "HotelFailedEvent":
