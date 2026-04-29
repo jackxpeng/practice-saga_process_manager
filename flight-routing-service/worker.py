@@ -19,6 +19,8 @@ def callback(ch, method, properties, body):
         destination = command.get("destination")
         rejected_routes = command.get("rejectedRoutes", [])
         
+        logger.info(f"Searching for flights to {destination}...")
+        
         airlines = ["Delta", "United", "American Airlines", "JetBlue"]
         chosen_airline = None
         for airline in airlines:
@@ -29,7 +31,7 @@ def callback(ch, method, properties, body):
         if not chosen_airline:
             chosen_airline = "Southwest"
             
-        route_id = chosen_airline
+        route_id = f"{chosen_airline}-to-{destination}"
         
         response_event = {
             "bookingId": booking_id,

@@ -13,6 +13,13 @@ class TripStatus(str, Enum):
     COMPLETED = "Completed"
     COMPENSATING = "Compensating"
 
+class CommandType(str, Enum):
+    CALCULATE_ROUTE = "CalculateRouteCommand"
+    REQUEST_EMPLOYEE_APPROVAL = "RequestEmployeeApprovalCommand"
+    BOOK_FLIGHT = "BookFlightCommand"
+    BOOK_HOTEL = "BookHotelCommand"
+    CANCEL_FLIGHT = "CancelFlightCommand"
+
 @dataclass(frozen=True)
 class Route:
     route_id: str
@@ -45,7 +52,7 @@ class ProcessState:
         self.status = TripStatus.ROUTING
         return OutboxEvent(
             aggregate_id=self.id,
-            event_type="CalculateRouteCommand",
+            event_type=CommandType.CALCULATE_ROUTE,
             payload={
                 "bookingId": str(self.id),
                 "destination": self.destination,
@@ -66,7 +73,7 @@ class ProcessState:
         )
         return OutboxEvent(
             aggregate_id=self.id,
-            event_type="RequestEmployeeApprovalCommand",
+            event_type=CommandType.REQUEST_EMPLOYEE_APPROVAL,
             payload={
                 "bookingId": str(self.id),
                 "travelerId": self.traveler_id,
@@ -86,7 +93,7 @@ class ProcessState:
             self.status = TripStatus.BOOKING_FLIGHTS
             return OutboxEvent(
                 aggregate_id=self.id,
-                event_type="BookFlightCommand",
+                event_type=CommandType.BOOK_FLIGHT,
                 payload={
                     "bookingId": str(self.id),
                     "travelerId": self.traveler_id,
@@ -106,7 +113,7 @@ class ProcessState:
             
             return OutboxEvent(
                 aggregate_id=self.id,
-                event_type="CalculateRouteCommand",
+                event_type=CommandType.CALCULATE_ROUTE,
                 payload={
                     "bookingId": str(self.id),
                     "destination": self.destination,
@@ -123,7 +130,7 @@ class ProcessState:
         self.flight_confirmation = flight_confirmation
         return OutboxEvent(
             aggregate_id=self.id,
-            event_type="BookHotelCommand",
+            event_type=CommandType.BOOK_HOTEL,
             payload={
                 "bookingId": str(self.id),
                 "destination": self.destination
@@ -142,7 +149,7 @@ class ProcessState:
         self.status = TripStatus.COMPENSATING
         return OutboxEvent(
             aggregate_id=self.id,
-            event_type="CancelFlightCommand",
+            event_type=CommandType.CANCEL_FLIGHT,
             payload={
                 "bookingId": str(self.id),
                 "flightConfirmation": self.flight_confirmation

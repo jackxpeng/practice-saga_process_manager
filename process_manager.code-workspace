@@ -1,6 +1,10 @@
 {
     "folders": [
         {
+            "path": ".",
+            "name": "📄 Root (Docs & Infra)"
+        },
+        {
             "path": "trip-booking-manager",
             "name": "📦 Core: Trip Manager"
         },
