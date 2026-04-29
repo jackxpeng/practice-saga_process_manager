@@ -23,8 +23,6 @@ def get_db():
 @app.on_event("startup")
 def on_startup():
     init_db()
-    # Removed background thread startup for relay and consumer. 
-    # They should be deployed as separate entry points.
 
 @app.post("/trips")
 def create_trip(req: TripRequest, db: Session = Depends(get_db)):
@@ -40,18 +38,27 @@ def create_trip(req: TripRequest, db: Session = Depends(get_db)):
         db.add(outbox_evt)
     db.commit()
     
-    return {"bookingId": str(state.id), "status": state.status}
+    return {"bookingId": str(state.id), "status": state.status.value}
 
 @app.get("/trips/{booking_id}")
 def get_trip(booking_id: str, db: Session = Depends(get_db)):
     state = db.query(ProcessState).filter(ProcessState.id == booking_id).first()
     if not state:
         raise HTTPException(status_code=404, detail="Trip not found")
+        
+    route_dict = None
+    if state.current_route:
+        route_dict = {
+            "routeId": state.current_route.route_id,
+            "airline": state.current_route.airline,
+            "cost": state.current_route.cost
+        }
+        
     return {
         "bookingId": str(state.id),
-        "status": state.status,
+        "status": state.status.value,
         "destination": state.destination,
-        "current_route": state.current_route,
+        "current_route": route_dict,
         "rejected_routes": state.rejected_routes
     }
 
@@ -66,4 +73,4 @@ def approve_trip(booking_id: str, req: ApprovalRequest, db: Session = Depends(ge
         db.add(outbox_evt)
         
     db.commit()
-    return {"status": state.status}
+    return {"status": state.status.value}
