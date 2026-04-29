@@ -1,4 +1,4 @@
-from domain import ProcessState, TripStatus
+from trip_booking.domain.domain import ProcessState, TripStatus
 
 
 def test_happy_path():

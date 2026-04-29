@@ -10,10 +10,10 @@ from sqlalchemy.orm import sessionmaker
 # Ensure imports work from trip-booking-manager
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../../trip-booking-manager')))
 
-from main import app, get_db
-import consumer
-from database import metadata, start_mappers
-from domain import ProcessState, OutboxEvent, TripStatus
+from trip_booking.entrypoints.main import app, get_db
+import trip_booking.entrypoints.consumer as consumer
+from trip_booking.infrastructure.database import metadata, start_mappers
+from trip_booking.domain.domain import ProcessState, OutboxEvent, TripStatus
 
 from sqlalchemy.pool import StaticPool
 

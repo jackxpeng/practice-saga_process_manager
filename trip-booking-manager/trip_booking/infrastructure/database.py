@@ -5,7 +5,7 @@ from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import registry, sessionmaker
 import datetime
 
-from domain import ProcessState, OutboxEvent, TripStatus, Route
+from trip_booking.domain.domain import ProcessState, OutboxEvent, TripStatus, Route
 
 mapper_registry = registry()
 metadata = mapper_registry.metadata

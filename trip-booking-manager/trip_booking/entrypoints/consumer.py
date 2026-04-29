@@ -3,8 +3,9 @@ import os
 import json
 import logging
 import time
-from database import SessionLocal, init_db
-from domain import ProcessState, OutboxEvent
+from trip_booking.infrastructure.database import SessionLocal, init_db
+from trip_booking.infrastructure.sql_repository import SqlAlchemyTripRepository
+from trip_booking.application.service import TripApplicationService
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -15,40 +16,18 @@ def callback(ch, method, properties, body):
     try:
         event = json.loads(body)
         event_type = method.routing_key
-        booking_id = event.get("bookingId")
         
-        if not booking_id:
-            logger.error("No bookingId in event payload")
-            ch.basic_ack(delivery_tag=method.delivery_tag)
-            return
-
-        import uuid
-        booking_uuid = uuid.UUID(booking_id)
-
         with SessionLocal() as db:
-            # Hydration Step: Load state from DB
-            state = db.query(ProcessState).filter(ProcessState.id == booking_uuid).first()
-            if not state:
-                logger.error(f"State not found for bookingId: {booking_id}")
+            repo = SqlAlchemyTripRepository(db)
+            service = TripApplicationService(repo)
+            
+            try:
+                service.process_external_event(event_type, event)
                 ch.basic_ack(delivery_tag=method.delivery_tag)
-                return
-            
-            outbox_evt = None
-            if event_type == "RouteGeneratedEvent":
-                outbox_evt = state.handle_route_generated(event.get("route"))
-            elif event_type == "FlightBookedEvent":
-                outbox_evt = state.handle_flight_booked(event.get("flightConfirmation"))
-            elif event_type == "HotelBookedEvent":
-                state.handle_hotel_booked(event.get("hotelConfirmation"))
-            elif event_type == "HotelFailedEvent":
-                outbox_evt = state.handle_hotel_failed(event.get("reason"))
+            except ValueError as e:
+                logger.error(f"Validation error: {e}")
+                ch.basic_ack(delivery_tag=method.delivery_tag)
                 
-            if outbox_evt:
-                db.add(outbox_evt)
-            
-            db.commit()
-            
-        ch.basic_ack(delivery_tag=method.delivery_tag)
     except Exception as e:
         logger.error(f"Error processing event: {e}")
         ch.basic_nack(delivery_tag=method.delivery_tag, requeue=False)

@@ -4,8 +4,8 @@ import pika
 import os
 import logging
 from sqlalchemy import text
-from database import SessionLocal, init_db
-from domain import OutboxEvent
+from trip_booking.infrastructure.database import SessionLocal, init_db
+from trip_booking.domain.domain import OutboxEvent
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
