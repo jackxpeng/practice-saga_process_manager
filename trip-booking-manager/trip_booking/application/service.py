@@ -1,5 +1,5 @@
 import uuid
-from typing import Optional, Dict, Any
+from typing import Any
 from trip_booking.domain.domain import ProcessState, OutboxEvent
 from trip_booking.application.ports import TripRepository
 
@@ -28,7 +28,7 @@ class TripApplicationService:
         else:
             self.repository.save(state)
 
-    def process_external_event(self, event_type: str, event: Dict[str, Any]) -> None:
+    def process_external_event(self, event_type: str, event: dict[str, Any]) -> None:
         booking_id = event.get("bookingId")
         if not booking_id:
             raise ValueError("No bookingId in event payload")
@@ -55,6 +55,6 @@ class TripApplicationService:
         else:
             self.repository.save(state)
 
-    def get_trip(self, booking_id: str) -> Optional[ProcessState]:
+    def get_trip(self, booking_id: str) -> ProcessState | None:
         booking_uuid = uuid.UUID(booking_id)
         return self.repository.get_by_id(booking_uuid)

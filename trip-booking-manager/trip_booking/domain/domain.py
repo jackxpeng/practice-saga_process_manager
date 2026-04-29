@@ -1,6 +1,6 @@
 from dataclasses import dataclass, field
 import uuid
-from typing import Dict, Any, Optional, List
+from typing import Any
 import datetime
 from enum import Enum
 
@@ -31,7 +31,7 @@ class Route:
 class OutboxEvent:
     aggregate_id: uuid.UUID
     event_type: str
-    payload: Dict[str, Any]
+    payload: dict[str, Any]
     id: uuid.UUID = field(default_factory=uuid.uuid4)
     published: bool = False
     created_at: datetime.datetime = field(default_factory=datetime.datetime.utcnow)
@@ -42,11 +42,11 @@ class ProcessState:
     traveler_id: str
     id: uuid.UUID = field(default_factory=uuid.uuid4)
     status: TripStatus = TripStatus.INITIALIZED
-    current_route: Optional[Route] = None
-    rejected_routes: List[str] = field(default_factory=list)
-    flight_confirmation: Optional[str] = None
+    current_route: Route | None = None
+    rejected_routes: list[str] = field(default_factory=list)
+    flight_confirmation: str | None = None
     
-    def handle_initialization(self) -> Optional[OutboxEvent]:
+    def handle_initialization(self) -> OutboxEvent | None:
         if self.status != TripStatus.INITIALIZED:
             return None # Idempotency
             
@@ -62,7 +62,7 @@ class ProcessState:
             }
         )
         
-    def handle_route_generated(self, route_data: Dict[str, Any]) -> Optional[OutboxEvent]:
+    def handle_route_generated(self, route_data: dict[str, Any]) -> OutboxEvent | None:
         if self.status != TripStatus.ROUTING:
             return None # Idempotency
             
@@ -86,7 +86,7 @@ class ProcessState:
             }
         )
         
-    def handle_approval(self, approved: bool) -> Optional[OutboxEvent]:
+    def handle_approval(self, approved: bool) -> OutboxEvent | None:
         if self.status != TripStatus.AWAITING_APPROVAL:
             return None # Idempotency
             
@@ -123,7 +123,7 @@ class ProcessState:
                 }
             )
             
-    def handle_flight_booked(self, flight_confirmation: str) -> Optional[OutboxEvent]:
+    def handle_flight_booked(self, flight_confirmation: str) -> OutboxEvent | None:
         if self.status != TripStatus.BOOKING_FLIGHTS:
             return None # Idempotency
             
@@ -143,7 +143,7 @@ class ProcessState:
             return # Idempotency
         self.status = TripStatus.COMPLETED
         
-    def handle_hotel_failed(self, reason: str) -> Optional[OutboxEvent]:
+    def handle_hotel_failed(self, reason: str) -> OutboxEvent | None:
         if self.status != TripStatus.BOOKING_HOTELS:
             return None # Idempotency
             

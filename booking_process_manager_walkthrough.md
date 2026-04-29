@@ -146,3 +146,88 @@ flowchart TD
     class TripBC,RouteBC,FlightBC,HotelBC internal
     class ExtRoute,ExtAirline,ExtHotel external
 ```
+
+### 6. Database Connection Options
+
+```mermaid
+flowchart TD
+    %% Styling Definitions
+    classDef strategy fill:#fff3e0,stroke:#f57c00,stroke-width:2px,color:#000
+    classDef db fill:#e1f5fe,stroke:#0288d1,stroke-width:2px,color:#000
+    classDef entry fill:#f3e5f5,stroke:#8e24aa,stroke-width:2px,color:#000
+    classDef domain fill:#e8f5e9,stroke:#388e3c,stroke-width:2px,color:#000
+
+    %% Central Databases
+    PostgresDB[(PostgreSQL\nProduction)]:::db
+    SQLiteDB[(SQLite\nIn-Memory / Local)]:::db
+
+    subgraph Case 1: Dependency Injection
+        direction LR
+        FastAPI[FastAPI Endpoints]:::entry -->|Depends get_db| PostgresDB
+        Pytest[Pytest TestClient]:::entry -.->|dependency_overrides| SQLiteDB
+    end
+
+    subgraph Case 2: Environment Variables
+        direction LR
+        Workers[Relay & Consumer Workers]:::entry --> URL{os.getenv<br>DATABASE_URL}:::strategy
+        URL -->|postgresql://...| PostgresDB
+        URL -.->|sqlite:///...| SQLiteDB
+    end
+
+    subgraph Case 3: Schema Translation
+        direction LR
+        Domain[Pure Domain Dataclass<br>e.g., Route, dict]:::domain --> Translator{SQLAlchemy<br>TypeDecorator / with_variant}:::strategy
+        Translator -->|If Postgres dialect| JSONB[JSONB Column]:::db
+        Translator -.->|If SQLite dialect| JSONText[Standard JSON Column]:::db
+        JSONB --> PostgresDB
+        JSONText -.-> SQLiteDB
+    end
+
+    %% Add invisible links to force vertical stacking of subgraphs
+    FastAPI ~~~ Workers
+    Workers ~~~ Domain
+```
+
+### 7. Ports & Adapters
+```mermaid
+flowchart TD
+    %% Styling to separate the layers visually
+    classDef adapter fill:#f3e5f5,stroke:#8e24aa,stroke-width:2px,color:#000
+    classDef service fill:#fff3e0,stroke:#f57c00,stroke-width:2px,color:#000
+    classDef port fill:#e1f5fe,stroke:#0288d1,stroke-width:2px,color:#000
+    classDef domain fill:#e8f5e9,stroke:#388e3c,stroke-width:2px,color:#000
+
+    subgraph DrivingAdapters [Left Side - Driving Adapters]
+        direction LR
+        API["main.py<br>(FastAPI)"]:::adapter
+        Consumer["consumer.py<br>(RabbitMQ Consumer)"]:::adapter
+    end
+
+    subgraph Hexagon [The Core - Application and Domain]
+        direction TB
+        Service["TripApplicationService<br>(application/service.py)"]:::service
+        
+        subgraph PortsLayer [Ports]
+            Port["TripRepository Interface<br>(application/ports.py)"]:::port
+        end
+        
+        subgraph DomainLayer [Domain]
+            Domain["ProcessState & Route<br>(domain/domain.py)"]:::domain
+        end
+
+        Service -->|1. Manipulates State| Domain
+        Service -->|2. Saves via Interface| Port
+    end
+
+    subgraph DrivenAdapters [Right Side - Driven Adapters]
+        direction LR
+        SQL["SqlAlchemyTripRepository<br>(infrastructure/sql_repository.py)"]:::adapter
+        Relay["relay.py<br>(RabbitMQ Publisher)"]:::adapter
+    end
+
+    %% External Connections crossing the boundary
+    API -->|Calls Use Cases| Service
+    Consumer -->|Calls Use Cases| Service
+    SQL -.->|Implements Contract| Port
+    Relay -.->|Reads Outbox Data| SQL
+```
